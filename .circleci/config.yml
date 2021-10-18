@@ -91,6 +91,3 @@ workflows:
       - deploy:
           requires:
             - slack/on-hold
-          filters:
-            branches:
-              only: two
