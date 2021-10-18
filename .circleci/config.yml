@@ -1,0 +1,96 @@
+version: '2.1'
+orbs:
+  slack: circleci/slack@4.1
+jobs:
+  dev:
+    docker:
+      - image: circleci/python:3.6
+    working_directory: /tmp
+    steps:
+      - run:
+          name: Creating Dummy Artifacts
+          command: |
+            echo "my artifact file" > /tmp/artifact-1;
+            mkdir /tmp/artifacts;
+            echo "my artifact files in a dir" > /tmp/artifacts/artifact-2;
+      - store_artifacts:
+          path: /tmp/artifact-1
+          destination: artifact-file
+
+      - store_artifacts:
+          path: /tmp/artifacts
+
+  notify:
+    docker:
+      - image: 'cimg/base:stable'
+    steps:
+      - slack/notify:
+          event: pass
+          custom: |
+            {
+              "blocks": [
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "plain_text",
+                      "text": "*plan generated successfully*",
+                      "emoji": true
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "button."
+                },
+                  "accessory": {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "Click Me",
+                      "emoji": true
+                      },
+                    "value": "click_me_123",
+                    "url": "${CIRCLE_BUILD_URL}",
+                    "action_id": "button-action"
+                }
+                    }
+                      			    
+              ]
+            }
+  deploy:
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      - checkout
+      - run:
+          name: Initialise venv
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+      - run:
+          name: Activate and Echo Deploy
+          command: |
+            . venv/bin/activate
+            echo deploy
+workflows:
+  send-notification:
+    jobs:
+      - dev
+      - notify:
+          context: SLACK
+          requires:
+            - dev
+      - slack/on-hold:
+          context: SLACK
+          type: approval
+          requires:
+            - notify
+      - deploy:
+          requires:
+            - slack/on-hold
+          filters:
+            branches:
+              only: two
